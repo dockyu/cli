@@ -13,3 +13,9 @@ cli: $(OBJS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJS) *~ cli
+
+distclean: clean
+	rm -f .cmd_history
