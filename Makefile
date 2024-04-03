@@ -6,7 +6,10 @@ CFLAGS += -Wvla
 
 all: cli
 
-OBJS := cli.o console.o report.o linenoise.o
+TTT_OBJS := game.o mt19937-64.o zobrist.o agents/mcts.o agents/fpmath.o
+
+OBJS := cli.o console.o report.o linenoise.o \
+		$(TTT_OBJS)
 
 cli: $(OBJS)
 	$(CC) $(CFLAGS) -o cli $(OBJS)
