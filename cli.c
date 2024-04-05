@@ -12,6 +12,8 @@
 #include "console.h"
 #include "report.h"
 
+#include "coro_ttt.h"
+
 #include "agents/mcts.h"
 #include "game.h"
 /* Record the order of moves */
@@ -176,7 +178,26 @@ static bool do_ttt(int argc, char *argv[])
     return 0;
 }
 
-
+static bool do_coro_ttt(int argc, char *argv[])
+{
+    if (argc > 2) {
+        printf("%s takes too much arguments\n", argv[0]);
+        return false;
+    }
+    int times = 0;
+    if (argc == 1) {
+        times = 1;
+    } else if (argc == 2) {
+        char *endptr;
+        times = strtol(argv[1], &endptr, 10);
+        if (*endptr != '\0') {
+            printf("%s takes error arguments %s\n", argv[0], argv[1]);
+            return false;
+        }
+    }
+    coro_ttt(times);
+    return 0;
+}
 
 static void console_init()
 {
@@ -185,6 +206,10 @@ static void console_init()
                 "Start a Tic-Tac-Toe game. Play against the computer if str "
                 "equals PVE. "
                 "If str equals EVE, the computer plays against the computer.",
+                "[str]");
+    ADD_COMMAND(coro_ttt, 
+                "ttt game in EVE mode, "
+                "str accepts an integer representing the number of rounds", 
                 "[str]");
 }
 
