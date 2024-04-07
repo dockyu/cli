@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <signal.h>
 #include "list.h"
 
 #include "agents/mcts.h"
@@ -34,8 +38,34 @@ static int move_record[N_GRIDS];
 static int move_count = 0;
 static int rounds = 0;
 static bool round_end = false;
+static bool enable_draw = true;
 
 static int initial_task_index;
+
+/* Store initial terminal setting */
+struct termios orig_termios;
+char lastKey = 0;
+
+/* Enable raw input mode */
+void enableRawInputMode() {
+    struct termios raw;
+    tcgetattr(STDIN_FILENO, &orig_termios);
+    raw = orig_termios;
+
+    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_iflag &= ~(IXON);
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+}
+
+/* disable raw input mode */
+void disableRawInputMode() {
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
+}
 
 static void task_add(struct task *task)
 {
@@ -187,11 +217,13 @@ static void check_win_task(void *arg)
 
     char win = check_win(table);
     if (win == 'D') {
-        draw_board(table);
+        if (enable_draw)
+            draw_board(table);
         printf("It is a draw!\n");
         round_end = true;
     } else if (win != ' ') {
-        draw_board(table);
+        if (enable_draw)
+            draw_board(table);
         printf("%c won!\n", win);
         round_end = true;
     }
@@ -234,7 +266,8 @@ static void draw_board_task(void *arg)
         longjmp(sched, 1);
     }
 
-    draw_board(table);
+    if (enable_draw)
+        draw_board(table);
 
     /* next task */
     task_add(task);
@@ -264,6 +297,19 @@ static void keyboard_listen_task(void *arg)
 
     /* TODO: keyboard listen detection */
     // printf("keyboard_listen_task");
+    char ch;
+    int readChar = read(STDIN_FILENO, &ch, 1);
+    if (readChar > 0) {
+        lastKey = ch;
+    }
+
+    if (lastKey == 0x10) { // Ctrl+P
+        enable_draw = enable_draw ^ true;
+    } else if (lastKey == 0x11) { // Ctrl+Q
+        round_end = true;
+        rounds = 0;
+    }
+    lastKey = 0;
 
     /* next task */
     task_add(task);
@@ -275,6 +321,7 @@ void coro_ttt(int times)
 {
     rounds = times;
     memset(table, ' ', N_GRIDS);
+    lastKey = 0;
 
     void (*registered_task[])(void *) = {ai_1_task, check_win_task, ai_2_task, check_win_task, draw_board_task, keyboard_listen_task};
     struct arg arg0 = {.task_name = "ai_1_task"};
@@ -287,5 +334,8 @@ void coro_ttt(int times)
     tasks = registered_task;
     args = registered_arg;
     ntasks = ARRAY_SIZE(registered_task);
+
+    enableRawInputMode();
     schedule();
+    disableRawInputMode();
 }
