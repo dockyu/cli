@@ -35,6 +35,8 @@ static int move_count = 0;
 static int rounds = 0;
 static bool round_end = false;
 
+static int initial_task_index;
+
 static void task_add(struct task *task)
 {
     list_add_tail(&task->list, &tasklist);
@@ -52,8 +54,7 @@ static void task_switch()
 
 void schedule(void)
 {
-    static int i;
-
+    int i = initial_task_index;
     setjmp(sched);
 
     while (ntasks-- > 0) {
